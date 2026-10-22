@@ -16,6 +16,7 @@ file in Finder and read it as a document instead of as source.
 - YAML front matter, shown as a header panel rather than as a wall of dashes
 - Images next to the file; anything it cannot read is marked in place
 - Light and dark, following the appearance of the window it draws into
+- A panel sized to your display, which then keeps whatever size you drag it to
 - Finder thumbnails of the first page
 
 ## Install

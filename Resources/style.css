@@ -57,6 +57,13 @@ body {
 
 body.mdql-thumbnail { padding: 20px 24px; }
 
+/* The panel can be as wide as the display; text is not readable at that
+   measure, so the column stops and centres instead. */
+#content {
+  max-width: 58rem;
+  margin: 0 auto;
+}
+
 #content > *:first-child { margin-top: 0; }
 #content > *:last-child { margin-bottom: 0; }
 
