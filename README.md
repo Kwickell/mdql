@@ -32,10 +32,17 @@ Bundle identifier and signing identity are overridable:
 
 ## Privacy
 
-A preview makes no network requests. The page's content security policy allows
-no `http` or `https` source of any kind, so a remote image or script in a
-markdown file is blocked rather than fetched, and every asset is served from
-inside the app bundle over a private `mdql:` scheme.
+A preview makes no network requests. The page's content security policy names
+no `http` or `https` source of any kind, so a remote image or stylesheet in a
+markdown file is blocked rather than fetched, and every asset is served by the
+extension over a private `mdql:` scheme.
+
+Raw HTML in a markdown file is parsed into an inert document and stripped of
+`script`, `link`, `meta`, `base`, `iframe`, `object` and `embed`, plus event
+handler attributes and `javascript:` URLs, before it is adopted into the page.
+A `<link rel="dns-prefetch">` would otherwise leak a lookup no policy can stop.
+Scripts are allowed by nonce alone, so a `.js` file sitting next to the
+markdown cannot be loaded even if something did inject a tag.
 
 The extensions do hold `com.apple.security.network.client`. WebKit refuses to
 load anything at all in a sandboxed app extension without it, including local
@@ -72,7 +79,10 @@ Watch what the installed extensions are doing:
 
     log stream --level debug --predicate 'subsystem == "com.kimwickell.MarkdownQuickLook"'
 
-Page-side errors, blocked requests and render times all go there.
+Render times and failures go there. Anything derived from the document itself,
+such as file names, requested paths and page error messages, is logged as
+private and shows up as `<private>` unless you have enabled private data
+logging. For content-level debugging use `mdql-probe`, which prints everything.
 
 ## Vendored engines
 

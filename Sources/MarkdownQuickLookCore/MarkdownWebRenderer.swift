@@ -99,7 +99,7 @@ public final class MarkdownWebRenderer: NSObject {
             return (Data((pageHTML ?? "").utf8), "text/html")
         case .bundleResource(let fileURL), .documentResource(let fileURL):
             guard let contents = try? Data(contentsOf: fileURL, options: [.mappedIfSafe]) else { return nil }
-            return (Data(contents), ResourceRouter.mimeType(for: fileURL))
+            return (contents, ResourceRouter.mimeType(for: fileURL))
         case .notFound:
             return nil
         }
@@ -122,10 +122,23 @@ extension MarkdownWebRenderer: WKNavigationDelegate {
     }
 
     public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        finish(.failure(RenderError.webViewFailed(error)))
+        fail(with: error)
     }
 
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        fail(with: error)
+    }
+
+    public func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        Log.page.error("the web content process stopped")
+        finish(.failure(RenderError.webViewFailed(CocoaError(.fileReadUnknown))))
+    }
+
+    private func fail(with error: Error) {
+        // The navigation policy cancels every load but the entry page, and a
+        // cancellation reported here is that policy working, not a failure.
+        let error = error as NSError
+        guard !(error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled) else { return }
         finish(.failure(RenderError.webViewFailed(error)))
     }
 }
@@ -168,7 +181,8 @@ private final class Bridge: NSObject, WKURLSchemeHandler, WKScriptMessageHandler
 
     func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
         activeTasks.insert(ObjectIdentifier(task))
-        Log.page.debug("request \(task.request.url?.absoluteString ?? "?", privacy: .public)")
+        // The path comes from the previewed document, so it is not logged openly.
+        Log.page.debug("request \(task.request.url?.absoluteString ?? "?", privacy: .private)")
         guard let url = task.request.url, let payload = owner?.data(for: url) else {
             respond(task, status: 404, mimeType: "text/plain", data: Data())
             return
@@ -185,7 +199,8 @@ private final class Bridge: NSObject, WKURLSchemeHandler, WKScriptMessageHandler
         case Self.readyMessageName:
             owner?.finish(.success(()))
         case Self.logMessageName:
-            Log.page.error("\(String(describing: message.body), privacy: .public)")
+            let text = String(describing: message.body).prefix(500)
+            Log.page.error("\(text, privacy: .private)")
         case Self.openMessageName:
             guard let link = message.body as? String, let url = URL(string: link),
                   let scheme = url.scheme?.lowercased(),

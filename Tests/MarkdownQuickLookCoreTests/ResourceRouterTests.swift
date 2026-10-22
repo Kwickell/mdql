@@ -93,3 +93,75 @@ final class ResourceRouterTests: XCTestCase {
         return url
     }
 }
+
+final class ResourceRouterSymlinkTests: XCTestCase {
+    private var resources: URL!
+    private var documents: URL!
+    private var outside: URL!
+    private var router: ResourceRouter!
+
+    override func setUpWithError() throws {
+        let base = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("mdql-links-\(UUID().uuidString)")
+        resources = base.appendingPathComponent("resources")
+        documents = base.appendingPathComponent("documents")
+        outside = base.appendingPathComponent("elsewhere")
+        for directory in [resources!, documents!, outside!] {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
+        addTeardownBlock { try? FileManager.default.removeItem(at: base) }
+        try Data("secret".utf8).write(to: outside.appendingPathComponent("keys.txt"))
+        try Data("ok".utf8).write(to: documents.appendingPathComponent("real.png"))
+        router = ResourceRouter(resourcesURL: resources, documentDirectory: documents)
+    }
+
+    private func resolve(_ string: String) -> ResourceRouter.Resolution {
+        router.resolve(URL(string: string)!)
+    }
+
+    func testRefusesSymlinkPointingOutOfTheDocumentDirectory() throws {
+        try FileManager.default.createSymbolicLink(
+            at: documents.appendingPathComponent("escape.png"),
+            withDestinationURL: outside.appendingPathComponent("keys.txt")
+        )
+        XCTAssertEqual(resolve("mdql://doc/escape.png"), .notFound)
+    }
+
+    func testRefusesSymlinkedDirectoryPointingOut() throws {
+        try FileManager.default.createSymbolicLink(
+            at: documents.appendingPathComponent("away"),
+            withDestinationURL: outside
+        )
+        XCTAssertEqual(resolve("mdql://doc/away/keys.txt"), .notFound)
+    }
+
+    func testAllowsSymlinkStayingInsideTheDocumentDirectory() throws {
+        try FileManager.default.createSymbolicLink(
+            at: documents.appendingPathComponent("alias.png"),
+            withDestinationURL: documents.appendingPathComponent("real.png")
+        )
+        guard case .documentResource = resolve("mdql://doc/alias.png") else {
+            return XCTFail("a link that stays inside the directory should resolve")
+        }
+    }
+
+    func testRefusesNonRegularFiles() throws {
+        let fifo = documents.appendingPathComponent("pipe.png")
+        XCTAssertEqual(mkfifo(fifo.path, 0o600), 0)
+        XCTAssertEqual(resolve("mdql://doc/pipe.png"), .notFound)
+    }
+
+    func testServesFileWhoseNameContainsAPercentSign() throws {
+        try Data("ok".utf8).write(to: documents.appendingPathComponent("a%20b.png"))
+        guard case .documentResource(let url) = resolve("mdql://doc/a%2520b.png") else {
+            return XCTFail("expected the literally named file")
+        }
+        XCTAssertEqual(url.lastPathComponent, "a%20b.png")
+    }
+
+    func testRefusesOversizedFiles() throws {
+        let big = documents.appendingPathComponent("huge.png")
+        try Data(count: ResourceRouter.fileSizeLimit + 1).write(to: big)
+        XCTAssertEqual(resolve("mdql://doc/huge.png"), .notFound)
+    }
+}

@@ -13,11 +13,13 @@ public enum AssetOrigin: String, Codable {
     /// Plain files next to the generated page, used by `mdql-render`.
     case localFiles
 
-    var contentSecurityPolicy: String {
+    /// Scripts are allowed by nonce alone, never by origin: a file sitting next
+    /// to the markdown is served over the same scheme as the bundled engines.
+    func contentSecurityPolicy(nonce: String) -> String {
         let source = self == .schemeHandler ? "mdql:" : "file:"
         return [
             "default-src 'none'",
-            "script-src 'nonce-{{NONCE}}' \(source)",
+            "script-src 'nonce-\(nonce)'",
             "style-src 'unsafe-inline' \(source)",
             "img-src \(source) data:",
             "font-src \(source) data:",
@@ -68,21 +70,39 @@ public struct PreviewDocumentBuilder {
             mode: mode,
             dark: dark,
             vendor: "vendor/",
-            title: document.title
+            title: document.title,
+            nonce: nonce
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let json = String(decoding: try encoder.encode(payload), as: UTF8.self)
 
-        var html = template
-        html = html.replacingOccurrences(of: "{{CSP}}", with: assets.contentSecurityPolicy)
-        html = html.replacingOccurrences(of: "{{NONCE}}", with: nonce)
-        html = html.replacingOccurrences(of: "{{THEME}}", with: dark ? "dark" : "light")
-        html = html.replacingOccurrences(of: "{{TITLE}}", with: escapeHTML(document.title))
-        html = html.replacingOccurrences(of: "{{BODY_CLASS}}", with: mode == .thumbnail ? "mdql-thumbnail" : "mdql-preview")
-        // Last, so that markdown containing a placeholder is never substituted.
-        html = html.replacingOccurrences(of: "{{PAYLOAD}}", with: escapeForInlineScript(json))
-        return PreviewPage(html: html, nonce: nonce)
+        return PreviewPage(html: fill(template, with: [
+            "CSP": assets.contentSecurityPolicy(nonce: nonce),
+            "NONCE": nonce,
+            "THEME": dark ? "dark" : "light",
+            "TITLE": escapeHTML(document.title),
+            "BODY_CLASS": mode == .thumbnail ? "mdql-thumbnail" : "mdql-preview",
+            "PAYLOAD": escapeForInlineScript(json)
+        ]), nonce: nonce)
+    }
+
+    /// One pass, so that a value containing `{{SOMETHING}}` is never itself
+    /// treated as a placeholder. Markdown and file names reach this.
+    static func fill(_ template: String, with values: [String: String]) -> String {
+        var output = ""
+        var rest = Substring(template)
+        while let open = rest.range(of: "{{") {
+            output += rest[..<open.lowerBound]
+            guard let close = rest[open.upperBound...].range(of: "}}") else {
+                return output + rest[open.lowerBound...]
+            }
+            let key = String(rest[open.upperBound..<close.lowerBound])
+            output += values[key] ?? "{{\(key)}}"
+            rest = rest[close.upperBound...]
+        }
+        return output + rest
+
     }
 
     private struct Payload: Encodable {
@@ -91,6 +111,8 @@ public struct PreviewDocumentBuilder {
         let dark: Bool
         let vendor: String
         let title: String
+        /// The page needs it to stamp the engines it loads on demand.
+        let nonce: String
     }
 
     public static func makeNonce() -> String {

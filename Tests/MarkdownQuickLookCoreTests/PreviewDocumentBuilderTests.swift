@@ -53,8 +53,8 @@ final class PreviewDocumentBuilderTests: XCTestCase {
 
     func testPlaceholdersInMarkdownAreNotSubstituted() throws {
         let html = try render("{{NONCE}} {{TITLE}} {{PAYLOAD}}")
-        XCTAssertEqual(html.components(separatedBy: "TESTNONCE").count - 1, 2)
         XCTAssertTrue(html.contains("{{NONCE}} {{TITLE}} {{PAYLOAD}}"))
+        XCTAssertTrue(html.contains("data-nonce=\"TESTNONCE\""))
     }
 
     func testEscapesJavaScriptLineSeparators() throws {
@@ -77,26 +77,27 @@ final class PreviewDocumentBuilderTests: XCTestCase {
 }
 
 final class ContentSecurityPolicyTests: XCTestCase {
-    func testExtensionPolicyAllowsOnlyTheCustomScheme() {
-        let policy = AssetOrigin.schemeHandler.contentSecurityPolicy
-        XCTAssertTrue(policy.contains("script-src 'nonce-{{NONCE}}' mdql:"))
-        XCTAssertTrue(policy.contains("default-src 'none'"))
-        XCTAssertTrue(policy.contains("connect-src 'none'"))
-        XCTAssertFalse(policy.contains("http"))
-        XCTAssertFalse(policy.contains("'unsafe-inline' mdql:; script"))
+    func testScriptsAreAllowedByNonceOnly() {
+        for origin in [AssetOrigin.schemeHandler, .localFiles] {
+            let policy = origin.contentSecurityPolicy(nonce: "ABC")
+            XCTAssertTrue(policy.contains("script-src 'nonce-ABC'"))
+            XCTAssertFalse(policy.contains("script-src 'nonce-ABC' mdql:"))
+            XCTAssertFalse(policy.contains("script-src 'nonce-ABC' file:"))
+            XCTAssertTrue(policy.contains("default-src 'none'"))
+            XCTAssertTrue(policy.contains("connect-src 'none'"))
+            XCTAssertFalse(policy.contains("http"))
+        }
     }
 
-    func testLocalFilePolicyAllowsFileURLs() {
-        let policy = AssetOrigin.localFiles.contentSecurityPolicy
-        XCTAssertTrue(policy.contains("script-src 'nonce-{{NONCE}}' file:"))
-        XCTAssertFalse(policy.contains("mdql:"))
-        XCTAssertFalse(policy.contains("http"))
+    func testAssetOriginPicksTheScheme() {
+        XCTAssertTrue(AssetOrigin.schemeHandler.contentSecurityPolicy(nonce: "x").contains("img-src mdql: data:"))
+        XCTAssertTrue(AssetOrigin.localFiles.contentSecurityPolicy(nonce: "x").contains("img-src file: data:"))
     }
 
-    func testNonceIsSubstitutedInsideThePolicy() throws {
+    func testNonceReachesThePolicyAndTheScriptTags() throws {
         let document = MarkdownDocument(text: "x", title: "a.md", directory: URL(fileURLWithPath: "/tmp"))
         let html = try PreviewDocumentBuilder.render(
-            template: "<meta content=\"{{CSP}}\"><body class=\"{{BODY_CLASS}}\"><title>{{TITLE}}</title>{{PAYLOAD}}",
+            template: "<meta content=\"{{CSP}}\"><script nonce=\"{{NONCE}}\"></script><body class=\"{{BODY_CLASS}}\"><title>{{TITLE}}</title>{{PAYLOAD}}",
             document: document,
             mode: .preview,
             dark: false,
@@ -104,6 +105,32 @@ final class ContentSecurityPolicyTests: XCTestCase {
             nonce: "ABC"
         ).html
         XCTAssertTrue(html.contains("'nonce-ABC'"))
-        XCTAssertFalse(html.contains("{{NONCE}}"))
+        XCTAssertTrue(html.contains("<script nonce=\"ABC\">"))
+        XCTAssertFalse(html.contains("{{"))
+    }
+}
+
+final class TemplateFillingTests: XCTestCase {
+    func testReplacesKnownKeys() {
+        XCTAssertEqual(PreviewDocumentBuilder.fill("a{{X}}b{{Y}}c", with: ["X": "1", "Y": "2"]), "a1b2c")
+    }
+
+    func testLeavesUnknownKeysAlone() {
+        XCTAssertEqual(PreviewDocumentBuilder.fill("a{{Z}}b", with: ["X": "1"]), "a{{Z}}b")
+    }
+
+    func testDoesNotSubstituteInsideASubstitutedValue() {
+        XCTAssertEqual(
+            PreviewDocumentBuilder.fill("<title>{{TITLE}}</title>{{PAYLOAD}}", with: ["TITLE": "{{PAYLOAD}}", "PAYLOAD": "data"]),
+            "<title>{{PAYLOAD}}</title>data"
+        )
+    }
+
+    func testHandlesAnUnterminatedPlaceholder() {
+        XCTAssertEqual(PreviewDocumentBuilder.fill("a{{X", with: ["X": "1"]), "a{{X")
+    }
+
+    func testPassesThroughATemplateWithNoPlaceholders() {
+        XCTAssertEqual(PreviewDocumentBuilder.fill("plain", with: ["X": "1"]), "plain")
     }
 }

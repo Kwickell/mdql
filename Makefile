@@ -1,12 +1,17 @@
-.PHONY: all build test install uninstall render probe vendor clean
+.PHONY: all build test check-rendering install uninstall render probe vendor clean
 
 all: test build
 
 build:
 	./tools/build.sh
 
-test:
+test: check-rendering
 	swift test
+
+# The markdown pipeline is JavaScript, so the Swift tests cannot reach it.
+check-rendering:
+	swift build --product mdql-probe
+	python3 tools/check_rendering.py
 
 install: build
 	./tools/install.sh

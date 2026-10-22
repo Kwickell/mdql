@@ -12,7 +12,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
 
     func preparePreviewOfFile(at url: URL, completionHandler handler: @escaping (Error?) -> Void) {
         let started = Date()
-        Log.preview.info("preparing \(url.lastPathComponent, privacy: .public)")
+        Log.preview.info("preparing \(url.lastPathComponent, privacy: .private)")
 
         guard let resourcesURL = Bundle.main.resourceURL else {
             Log.preview.error("extension bundle has no resources")

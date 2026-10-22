@@ -1,6 +1,7 @@
 /* Markdown -> DOM for the Quick Look preview and thumbnail extensions.
-   Everything it loads comes from the extension bundle; the page's CSP has no
-   http(s) source, so previewing a file never produces network traffic. */
+   Every URL on this page is served by the extension, from its own bundle or
+   from the directory holding the previewed file. The page's content security
+   policy names no http(s) source, so rendering never reaches the network. */
 (function () {
   "use strict";
 
@@ -13,6 +14,9 @@
   function loadScript(src) {
     return new Promise(function (resolve, reject) {
       var el = document.createElement("script");
+      // Scripts are allowed by nonce only, so an engine loaded on demand has to
+      // carry the same one the page was served with.
+      if (payload.nonce) el.setAttribute("nonce", payload.nonce);
       el.src = src;
       el.onload = function () { resolve(); };
       el.onerror = function () { reject(new Error("failed to load " + src)); };
@@ -93,9 +97,13 @@
     var embed = src.charCodeAt(pos) === 0x21; /* ! */
     var start = embed ? pos + 1 : pos;
     if (src.charCodeAt(start) !== 0x5b || src.charCodeAt(start + 1) !== 0x5b) return false;
-    var end = src.indexOf("]]", start + 2);
-    if (end < 0) return false;
-    var inner = src.slice(start + 2, end);
+    // Bounded, so a document full of unclosed "[[" cannot turn the parse
+    // quadratic by scanning to the end of the file each time.
+    var window = src.slice(start + 2, start + 2 + 256);
+    var offset = window.indexOf("]]");
+    if (offset < 0) return false;
+    var end = start + 2 + offset;
+    var inner = window.slice(0, offset);
     if (inner.indexOf("\n") >= 0 || !inner.trim()) return false;
 
     if (!silent) {
@@ -119,29 +127,47 @@
     return true;
   }
 
+  function slugify(text) {
+    var slug = text.toLowerCase().trim().replace(/\s+/g, "-");
+    try {
+      // Keeps headings in any script addressable; \w alone would erase them.
+      slug = slug.replace(/[^\p{L}\p{N}_-]+/gu, "");
+    } catch (e) {
+      slug = slug.replace(/[^\w-]+/g, "");
+    }
+    return slug;
+  }
+
   function buildMarkdownIt(opts) {
     var md = window.markdownit({
       html: true,
       linkify: true,
       breaks: false,
-      typographer: false,
-      highlight: function (code, lang) {
-        if (lang && lang.toLowerCase() === "mermaid") {
-          return '<div class="mdql-diagram" data-mermaid="pending"><pre class="mermaid">' +
-            escapeHtml(code) + "</pre></div>";
-        }
-        if (opts.hljs && window.hljs) {
-          try {
-            var result = lang && window.hljs.getLanguage(lang)
-              ? window.hljs.highlight(code, { language: lang, ignoreIllegals: true })
-              : window.hljs.highlightAuto(code);
-            return '<pre><code class="hljs language-' + escapeHtml(result.language || lang || "") +
-              '">' + result.value + "</code></pre>";
-          } catch (e) { /* fall through to plain */ }
-        }
-        return "<pre><code>" + escapeHtml(code) + "</code></pre>";
-      }
+      typographer: false
     });
+
+    // Not markdown-it's `highlight` option: that keeps the <pre><code> wrapper
+    // around whatever it returns, and a diagram needs its own container.
+    md.renderer.rules.fence = function (tokens, idx) {
+      var token = tokens[idx];
+      var language = (token.info || "").trim().split(/\s+/)[0].toLowerCase();
+      var code = token.content;
+
+      if (language === "mermaid") {
+        return '<div class="mdql-diagram" data-mermaid="pending"><pre class="mermaid">' +
+          escapeHtml(code) + "</pre></div>\n";
+      }
+      if (opts.hljs && window.hljs) {
+        try {
+          var result = language && window.hljs.getLanguage(language)
+            ? window.hljs.highlight(code, { language: language, ignoreIllegals: true })
+            : window.hljs.highlightAuto(code);
+          return '<pre><code class="hljs language-' + escapeHtml(result.language || language || "") +
+            '">' + result.value + "</code></pre>\n";
+        } catch (e) { /* fall through to plain */ }
+      }
+      return "<pre><code>" + escapeHtml(code) + "</code></pre>\n";
+    };
 
     [
       "markdownitFootnote", "markdownitDeflist", "markdownitMark",
@@ -165,11 +191,14 @@
 
     md.inline.ruler.before("link", "mdql_wikilink", wikiLinkRule);
 
+    var usedSlugs = {};
     md.renderer.rules.heading_open = function (tokens, idx, options, env, self) {
       var inline = tokens[idx + 1];
-      var text = inline && inline.content ? inline.content : "";
-      var slug = text.toLowerCase().replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-");
-      if (slug) tokens[idx].attrSet("id", slug);
+      var slug = slugify(inline && inline.content ? inline.content : "");
+      if (slug) {
+        usedSlugs[slug] = (usedSlugs[slug] || 0) + 1;
+        tokens[idx].attrSet("id", usedSlugs[slug] > 1 ? slug + "-" + usedSlugs[slug] : slug);
+      }
       return self.renderToken(tokens, idx, options);
     };
 
@@ -177,6 +206,39 @@
   }
 
   /* ---------- DOM post-processing ---------- */
+
+  // Raw HTML in the markdown is parsed into an inert document, where nothing
+  // loads, and stripped before it is adopted into the page. Some of it would
+  // otherwise reach the network before the content security policy gets a say:
+  // <link rel="dns-prefetch"> leaks a lookup whatever the policy says.
+  var FORBIDDEN_TAGS = "script, link, meta, base, iframe, frame, frameset, object, embed, applet, portal";
+  var URL_ATTRIBUTES = ["href", "src", "xlink:href", "action", "formaction", "ping", "srcset", "data"];
+
+  function toInertBody(html) {
+    var parsed = new DOMParser().parseFromString("<!doctype html><body>" + html, "text/html");
+    var forbidden = parsed.body.querySelectorAll(FORBIDDEN_TAGS);
+    for (var i = 0; i < forbidden.length; i++) forbidden[i].remove();
+
+    var elements = parsed.body.querySelectorAll("*");
+    for (var j = 0; j < elements.length; j++) {
+      var element = elements[j];
+      var attributes = Array.prototype.slice.call(element.attributes);
+      for (var k = 0; k < attributes.length; k++) {
+        var name = attributes[k].name;
+        var value = attributes[k].value || "";
+        if (/^on/i.test(name)) {
+          element.removeAttribute(name);
+        } else if (URL_ATTRIBUTES.indexOf(name.toLowerCase()) >= 0 &&
+                   /^\s*(javascript|vbscript|data):/i.test(value) &&
+                   !/^\s*data:image\//i.test(value)) {
+          element.removeAttribute(name);
+        }
+      }
+    }
+    return parsed.body;
+  }
+
+
 
   var CALLOUT_ICONS = {
     note: '<svg width="14" height="14" viewBox="0 0 16 16"><path d="M0 8a8 8 0 1116 0A8 8 0 010 8zm8-6.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM6.5 7.75A.75.75 0 017.25 7h1a.75.75 0 01.75.75v2.75h.25a.75.75 0 010 1.5h-2a.75.75 0 010-1.5h.25v-2h-.25a.75.75 0 01-.75-.75zM8 6a1 1 0 110-2 1 1 0 010 2z"/></svg>',
@@ -198,15 +260,18 @@
       var bq = quotes[i];
       var first = bq.firstElementChild;
       if (!first || first.tagName !== "P") continue;
-      var m = /^\[!([A-Za-z]+)\]([+-])?[ \t]*(.*)/.exec(first.textContent);
+      // The marker has to open the paragraph as plain text, and only that text
+      // is consumed: markup following it on the same line stays in the body.
+      var marker = first.firstChild;
+      if (!marker || marker.nodeType !== 3) continue;
+      var m = /^\s*\[!([A-Za-z]+)\]([+-])?[ \t]*([^\n]*)/.exec(marker.nodeValue);
       if (!m) continue;
       var raw = m[1].toLowerCase();
       var kind = CALLOUT_ICONS[raw] ? raw : (CALLOUT_ALIASES[raw] || "note");
       var title = m[3].trim() || m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase();
 
-      // Drop the marker line but keep anything that followed it in the same paragraph.
-      var html = first.innerHTML.replace(/^\s*\[!\w+\][+-]?[ \t]*[^\n<]*(<br\s*\/?>)?/, "");
-      if (html.trim()) { first.innerHTML = html; } else { first.remove(); }
+      marker.nodeValue = marker.nodeValue.slice(m[0].length).replace(/^\n/, "");
+      if (!first.textContent.trim() && !first.children.length) first.remove();
 
       var box = document.createElement("div");
       box.className = "mdql-callout";
@@ -351,7 +416,9 @@
 
     Promise.all(jobs).then(function () {
       var md = buildMarkdownIt({ hljs: want.hljs, math: want.katex });
-      content.innerHTML = renderFrontMatter(split.meta) + md.render(split.body);
+      content.innerHTML = renderFrontMatter(split.meta);
+      var body = toInertBody(md.render(split.body));
+      while (body.firstChild) content.appendChild(document.adoptNode(body.firstChild));
       upgradeCallouts(content);
       neutraliseLinks(content);
       Array.prototype.forEach.call(

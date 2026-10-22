@@ -8,15 +8,12 @@ final class ThumbnailProvider: QLThumbnailProvider {
     /// thumbnail shows a sensible amount of text rather than two huge words.
     private static let layoutWidth: CGFloat = 820
 
-    private var renderer: MarkdownWebRenderer?
-    private var window: NSWindow?
-
     override func provideThumbnail(
         for request: QLFileThumbnailRequest,
         _ handler: @escaping (QLThumbnailReply?, Error?) -> Void
     ) {
         DispatchQueue.main.async { [self] in
-            Log.thumbnail.info("preparing \(request.fileURL.lastPathComponent, privacy: .public)")
+            Log.thumbnail.info("preparing \(request.fileURL.lastPathComponent, privacy: .private)")
             guard let resourcesURL = Bundle.main.resourceURL,
                   let document = try? MarkdownDocument.load(contentsOf: request.fileURL) else {
                 Log.thumbnail.error("could not read the file")
@@ -33,13 +30,13 @@ final class ThumbnailProvider: QLThumbnailProvider {
             )
 
             let renderer = MarkdownWebRenderer(resourcesURL: resourcesURL, frame: layout)
-            self.renderer = renderer
 
-            // WebKit only paints a web view that belongs to a window.
+            // WebKit only paints a web view that belongs to a window. Both are
+            // held by the closures below rather than by the provider, which
+            // Quick Look may reuse for another request before this one ends.
             let host = NSWindow(contentRect: layout, styleMask: [.borderless], backing: .buffered, defer: false)
             host.contentView = renderer.webView
             host.orderOut(nil)
-            self.window = host
 
             renderer.render(document: document, mode: .thumbnail, dark: false, timeout: 2.5) { result in
                 if case .failure(let error) = result {
@@ -50,6 +47,9 @@ final class ThumbnailProvider: QLThumbnailProvider {
                 snapshot.rect = layout
                 snapshot.snapshotWidth = NSNumber(value: Double(reply.width * request.scale))
                 renderer.webView.takeSnapshot(with: snapshot) { image, error in
+                    // Nothing else holds the window, and a web view without one
+                    // paints nothing, so it has to stay referenced until here.
+                    host.orderOut(nil)
                     guard let image,
                           let page = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
                         Log.thumbnail.error("snapshot failed: \(String(describing: error), privacy: .public)")

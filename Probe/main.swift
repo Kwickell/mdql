@@ -50,6 +50,12 @@ JSON.stringify({
   strikes: document.querySelectorAll('s,del').length,
   images: Array.from(document.querySelectorAll('img')).map(i => i.getAttribute('src') + ' -> ' + i.naturalWidth + 'px'),
   missingAssets: Array.from(document.querySelectorAll('.mdql-missing-asset')).map(n => n.textContent),
+  forbiddenNodes: document.querySelectorAll('#content script, #content link, #content meta, #content base, #content iframe, #content object, #content embed').length,
+  eventHandlerAttributes: Array.from(document.querySelectorAll('#content *')).filter(function (e) { return Array.from(e.attributes).some(function (a) { return a.name.toLowerCase().indexOf('on') === 0; }); }).length,
+  scriptUrls: Array.from(document.querySelectorAll('#content [href], #content [src]')).map(function (e) { return (e.getAttribute('href') || e.getAttribute('src') || '').trim().toLowerCase(); }).filter(function (v) { return v.indexOf('javascript:') === 0 || v.indexOf('vbscript:') === 0; }).length,
+  executedPayload: window.__pwned === undefined ? 'none' : String(window.__pwned),
+  checkboxes: document.querySelectorAll('#content input[type=checkbox]').length,
+  details: document.querySelectorAll('#content details').length,
   height: document.body.scrollHeight
 }, null, 2)
 """

@@ -4,8 +4,8 @@ import Foundation
 ///
 /// Everything the page loads goes through the `mdql:` scheme: bundle assets
 /// under `mdql://doc/vendor/...` and the previewed file's own images under
-/// `mdql://doc/<relative path>`. Nothing else is reachable, which is what keeps
-/// a preview from making network requests.
+/// `mdql://doc/<relative path>`. Nothing outside the extension's resources and
+/// the directory holding the markdown file is reachable.
 public struct ResourceRouter {
     public enum Resolution: Equatable {
         case entry
@@ -17,6 +17,10 @@ public struct ResourceRouter {
     public static let scheme = "mdql"
     public static let host = "doc"
     public static let entryPath = "__mdql_preview__.html"
+
+    /// Images beyond this are refused rather than read into memory on the main
+    /// thread while Quick Look waits.
+    public static let fileSizeLimit = 64 * 1024 * 1024
 
     private let resourcesURL: URL
     private let documentDirectory: URL
@@ -38,7 +42,7 @@ public struct ResourceRouter {
 
         // Assets that ship with the extension win over same-named files sitting
         // next to the markdown, so a stray vendor/ folder cannot shadow them.
-        if let bundled = resolve(path, under: resourcesURL), Self.isBundleAsset(path) {
+        if let bundled = resolve(path, under: resourcesURL), Self.isBundleAsset(bundled, under: resourcesURL) {
             return .bundleResource(bundled)
         }
         if let local = resolve(path, under: documentDirectory) {
@@ -47,18 +51,23 @@ public struct ResourceRouter {
         return .notFound
     }
 
-    private static func isBundleAsset(_ path: String) -> Bool {
-        path == "style.css" || path == "render.js" || path.hasPrefix("vendor/")
+    private static func isBundleAsset(_ url: URL, under root: URL) -> Bool {
+        let relative = url.path.dropFirst(root.path.count + 1)
+        return relative == "style.css" || relative == "render.js" || relative.hasPrefix("vendor/")
     }
 
     private func resolve(_ path: String, under root: URL) -> URL? {
-        let decoded = path.removingPercentEncoding ?? path
-        guard !decoded.contains("\0") else { return nil }
-        let candidate = root.appendingPathComponent(decoded).standardizedFileURL
-        guard candidate.path == root.path || candidate.path.hasPrefix(root.path + "/") else { return nil }
-        var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: candidate.path, isDirectory: &isDirectory),
-              !isDirectory.boolValue else { return nil }
+        guard !path.contains("\0") else { return nil }
+        // url.path is already percent-decoded; decoding again would both hide a
+        // file whose name contains a percent sign and re-expose encoded traversal.
+        let candidate = root.appendingPathComponent(path)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        guard candidate.path.hasPrefix(root.path + "/") else { return nil }
+
+        guard let values = try? candidate.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),
+              values.isRegularFile == true,
+              (values.fileSize ?? 0) <= Self.fileSizeLimit else { return nil }
         return candidate
     }
 
