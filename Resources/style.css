@@ -1,0 +1,304 @@
+/* The theme is set on <html> by the extension, which knows the appearance of
+   the window it is drawing into. Thumbnails are always light. */
+:root {
+  color-scheme: light;
+  --fg: #1f2328;
+  --fg-muted: #59636e;
+  --fg-faint: #818b98;
+  --bg: #ffffff;
+  --bg-subtle: #f6f8fa;
+  --bg-inset: #eff2f5;
+  --border: #d1d9e0;
+  --border-muted: #e4e8ed;
+  --accent: #0969da;
+  --accent-subtle: #ddf4ff;
+  --danger: #cf222e;
+  --success: #1a7f37;
+  --attention: #9a6700;
+  --done: #8250df;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  --sans: ui-sans-serif, -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --fg: #f0f6fc;
+  --fg-muted: #9198a1;
+  --fg-faint: #6a737d;
+  --bg: #0d1117;
+  --bg-subtle: #151b23;
+  --bg-inset: #010409;
+  --border: #3d444d;
+  --border-muted: #262c36;
+  --accent: #4493f8;
+  --accent-subtle: #121d2f;
+  --danger: #f85149;
+  --success: #3fb950;
+  --attention: #d29922;
+  --done: #ab7df8;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  padding: 28px 36px 64px;
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--fg);
+  background: var(--bg);
+  word-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
+  overflow-wrap: break-word;
+}
+
+body.mdql-thumbnail { padding: 20px 24px; }
+
+#content > *:first-child { margin-top: 0; }
+#content > *:last-child { margin-bottom: 0; }
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 24px 0 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+h1 { font-size: 2em; padding-bottom: .3em; border-bottom: 1px solid var(--border-muted); }
+h2 { font-size: 1.5em; padding-bottom: .3em; border-bottom: 1px solid var(--border-muted); }
+h3 { font-size: 1.25em; }
+h4 { font-size: 1em; }
+h5 { font-size: .875em; }
+h6 { font-size: .85em; color: var(--fg-muted); }
+
+p, blockquote, ul, ol, dl, table, pre, details { margin: 0 0 16px; }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+a.mdql-wikilink {
+  color: var(--done);
+  border-bottom: 1px dashed currentColor;
+}
+a.mdql-wikilink.is-missing { color: var(--fg-muted); }
+
+strong { font-weight: 600; }
+mark { background: #fff8c5; color: inherit; border-radius: 3px; padding: 0 2px; }
+:root[data-theme="dark"] mark { background: #4a3c05; }
+
+hr {
+  height: 1px;
+  border: 0;
+  background: var(--border);
+  margin: 24px 0;
+}
+
+ul, ol { padding-left: 2em; }
+li + li { margin-top: .25em; }
+li > ul, li > ol { margin: .25em 0 0; }
+
+li.task-list-item { list-style: none; margin-left: -1.55em; }
+li.task-list-item input[type="checkbox"] {
+  margin: 0 .35em .18em 0;
+  vertical-align: middle;
+  accent-color: var(--accent);
+}
+
+dl dt { font-weight: 600; margin-top: 16px; }
+dl dd { margin: 0 0 8px 2em; }
+
+blockquote {
+  padding: 0 1em;
+  color: var(--fg-muted);
+  border-left: .25em solid var(--border);
+}
+blockquote > :last-child { margin-bottom: 0; }
+
+code, kbd, samp, tt {
+  font-family: var(--mono);
+  font-size: 85%;
+}
+
+:not(pre) > code {
+  padding: .2em .4em;
+  background: var(--bg-inset);
+  border-radius: 6px;
+  white-space: break-spaces;
+}
+
+pre {
+  padding: 14px 16px;
+  overflow: auto;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-muted);
+  border-radius: 8px;
+  line-height: 1.45;
+}
+pre > code {
+  padding: 0;
+  background: transparent;
+  font-size: 90%;
+  white-space: pre;
+}
+
+/* highlight.js themes paint their own page-coloured block behind the code,
+   which would sit inside the frame this stylesheet already draws. */
+pre > code.hljs {
+  background: transparent;
+  padding: 0;
+}
+
+table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: auto;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+th, td {
+  padding: 6px 13px;
+  border: 1px solid var(--border);
+}
+th { font-weight: 600; background: var(--bg-subtle); }
+tbody tr:nth-child(2n) { background: var(--bg-subtle); }
+
+img { max-width: 100%; border-radius: 6px; background: var(--bg-subtle); }
+
+.mdql-missing-asset {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-muted);
+  background: var(--bg-subtle);
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+}
+
+/* Front matter */
+.mdql-frontmatter {
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-muted);
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+.mdql-frontmatter summary {
+  cursor: default;
+  color: var(--fg-muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.mdql-frontmatter dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 16px;
+  margin: 10px 0 0;
+}
+.mdql-frontmatter dt { font-weight: 600; margin: 0; color: var(--fg-muted); }
+.mdql-frontmatter dd { margin: 0; }
+.mdql-tag {
+  display: inline-block;
+  padding: 0 7px;
+  margin-right: 4px;
+  background: var(--accent-subtle);
+  color: var(--accent);
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+/* Callouts: > [!NOTE] and friends */
+.mdql-callout {
+  padding: 12px 16px;
+  margin: 0 0 16px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--callout-color, var(--accent));
+  border-radius: 6px;
+  background: var(--bg-subtle);
+}
+.mdql-callout > :last-child { margin-bottom: 0; }
+.mdql-callout-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--callout-color, var(--accent));
+}
+.mdql-callout-title svg { fill: currentColor; flex: none; }
+.mdql-callout[data-kind="note"]      { --callout-color: var(--accent); }
+.mdql-callout[data-kind="tip"]       { --callout-color: var(--success); }
+.mdql-callout[data-kind="important"] { --callout-color: var(--done); }
+.mdql-callout[data-kind="warning"]   { --callout-color: var(--attention); }
+.mdql-callout[data-kind="caution"]   { --callout-color: var(--danger); }
+
+/* Mermaid */
+.mdql-diagram {
+  margin: 0 0 16px;
+  padding: 16px;
+  text-align: center;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-muted);
+  border-radius: 8px;
+  overflow-x: auto;
+}
+.mdql-diagram svg { max-width: 100%; height: auto; }
+/* Mermaid renders into the <pre> it was given, which would otherwise keep the
+   code-block frame around the finished diagram. */
+.mdql-diagram pre.mermaid {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  overflow: visible;
+}
+.mdql-diagram-error {
+  border-color: var(--danger);
+  text-align: left;
+}
+.mdql-diagram-error .reason {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--danger);
+  margin-bottom: 8px;
+}
+
+/* Footnotes */
+.footnotes {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-muted);
+  font-size: 12.5px;
+  color: var(--fg-muted);
+}
+.footnotes ol { padding-left: 1.4em; }
+.footnote-backref { text-decoration: none; }
+
+/* KaTeX */
+.katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
+.katex { font-size: 1.05em; }
+
+/* Status strip shown when something degraded */
+#mdql-notice {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin: -28px -36px 24px;
+  padding: 7px 36px;
+  font-size: 11.5px;
+  font-family: var(--mono);
+  color: var(--attention);
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border-muted);
+}
+#mdql-notice:empty { display: none; }
+
+abbr[title] { border-bottom: 1px dotted var(--fg-faint); text-decoration: none; cursor: help; }
