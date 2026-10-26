@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD="$ROOT/build"
 APP="$BUILD/MarkdownQuickLook.app"
-BUNDLE_ID="${MDQL_BUNDLE_ID:-com.kimwickell.MarkdownQuickLook}"
+BUNDLE_ID="${MDQL_BUNDLE_ID:-io.github.kwickell.mdql}"
 VERSION="$(cat "$ROOT/VERSION")"
 SDK="$(xcrun --show-sdk-path)"
 DEPLOYMENT_TARGET="12.0"

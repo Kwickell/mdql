@@ -4,7 +4,7 @@ import os
 /// Quick Look extensions have no console of their own. Everything they report
 /// goes to the unified log:
 ///
-///     log stream --predicate 'subsystem == "com.kimwickell.MarkdownQuickLook"'
+///     log stream --predicate 'subsystem == "io.github.kwickell.mdql"'
 public enum Log {
     public static let preview = Logger(subsystem: subsystem, category: "preview")
     public static let thumbnail = Logger(subsystem: subsystem, category: "thumbnail")

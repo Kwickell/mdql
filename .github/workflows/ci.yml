@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Unit tests
+        run: swift test
+
+      - name: Build the app bundle
+        run: ./tools/build.sh
+
+      # Renders the fixtures in a real WKWebView, which needs a window server.
+      # Whether a hosted runner provides one has not been confirmed, so a
+      # failure here does not fail the build. Locally it runs under `make test`.
+      - name: Rendering checks
+        continue-on-error: true
+        run: |
+          swift build --product mdql-probe
+          python3 tools/check_rendering.py

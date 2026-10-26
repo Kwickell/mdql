@@ -1,5 +1,5 @@
 # Vendored rendering engines. Regenerate with tools/vendor.sh.
-# Generated 2026-10-22T12:06:43Z
+# Generated 2026-10-26T10:01:16Z
 
 npm  markdown-it@14.1.0
 npm  markdown-it-footnote@4.0.0
@@ -12,6 +12,7 @@ npm  markdown-it-task-lists@2.1.1
 npm  markdown-it-texmath@1.0.0
 npm  katex@0.16.11
 npm  mermaid@11.4.1
+npm  highlight.js@11.11.1
 cdn  https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js
 cdn  https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css
 cdn  https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css
@@ -41,6 +42,18 @@ a4af7d414440a1c1790825cfb700cf9cf43b0f2c4b04f0ebc523011ad9853ec0  katex/fonts/Ka
 71d517d67827787cfabdf186914cc3358eda539e37931941f2b2fd4a21f68c0b  katex/fonts/KaTeX_Typewriter-Regular.woff2
 717bc9ae7853b61f0f76455dddf0ecd4f527a783f42de2ac24684899c1c46258  katex/katex.min.css
 e6bfe5deebd4c7ccd272055bab63bd3ab2c73b907b6e6a22d352740a81381fd4  katex/katex.min.js
+6c081431591d9df696c82dc598fe1423765b8a299b200ed00b281afd0f64c490  licenses/highlight.js.LICENSE
+766ccc1f306c885aa45542a9846bbd0a505b27a0374f146778171c2254ce18e3  licenses/katex.LICENSE
+81d61236a5f25294b2dad0c866d4ad6a40b865148b28df9a71f49ba771a6c54b  licenses/markdown-it-abbr.LICENSE
+81d61236a5f25294b2dad0c866d4ad6a40b865148b28df9a71f49ba771a6c54b  licenses/markdown-it-deflist.LICENSE
+81d61236a5f25294b2dad0c866d4ad6a40b865148b28df9a71f49ba771a6c54b  licenses/markdown-it-footnote.LICENSE
+81d61236a5f25294b2dad0c866d4ad6a40b865148b28df9a71f49ba771a6c54b  licenses/markdown-it-mark.LICENSE
+81d61236a5f25294b2dad0c866d4ad6a40b865148b28df9a71f49ba771a6c54b  licenses/markdown-it-sub.LICENSE
+81d61236a5f25294b2dad0c866d4ad6a40b865148b28df9a71f49ba771a6c54b  licenses/markdown-it-sup.LICENSE
+e7cefb44454d371c9eddb390fb829d34fc6ffa79e63776873c34f8413bf3268b  licenses/markdown-it-task-lists.LICENSE
+655a4d5721dabe668d3ef640d5587d44534d370e7dc256d4f33740278dc710d5  licenses/markdown-it-texmath.LICENSE
+792c48c5a849a15fdf9e37e8bcf9e6d1dd13b32b46c642a748a0a46a9919d473  licenses/markdown-it.LICENSE
+ec9fb67dcb25eccc416ed56e1aab819222c805a2a4bfe4cb19e7556bf2ffde80  licenses/mermaid.LICENSE
 a8866f434296fbb46e6800bbb5356f2472472b3fd10bd5471951dc48daefdcac  markdown-it-abbr.min.js
 ab393099a725e532d63bf877b4c6a5c9c57b87bf8d8d467e5c3a8d8ced33692e  markdown-it-deflist.min.js
 d6fee58a3b56c5742fa18f3e01f1d317cc99975683ebd39c9195cb2aff0c2e42  markdown-it-footnote.min.js
